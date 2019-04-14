@@ -24,12 +24,13 @@ dependencies:
 - bytestring
 - parsec
 - containers
+- pretty-simple
 
 library:
   source-dirs: src
 
 executables:
-  bf-parser-exe:
+  bf-wasm-compiler-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -37,10 +38,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - bf-parser
+    - bf-wasm-compiler
 
 tests:
-  bf-parser-test:
+  bf-wasm-compiler-test:
     main:                Spec.hs
     source-dirs:         test
     ghc-options:
@@ -48,4 +49,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - bf-parser
+    - bf-wasm-compiler
