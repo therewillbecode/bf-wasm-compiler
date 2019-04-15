@@ -1,68 +1,69 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Parser
-    ( parseBf
-    ) where
+  ( parseBF
+  ) where
 
 import Control.Monad
 
-import Data.Functor
 import Data.Either
+import Data.Functor
 
+import Text.Parsec
+import Text.Parsec.Char
+import Text.Parsec.Error
+import Text.Parsec.String (Parser)
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Language
-import Text.Parsec.Char
-import Text.Parsec.String (Parser)
-import Text.Parsec
+
+import Text.Pretty.Simple (pPrint)
 
 import System.IO
 
 import Prelude
+import Types
 
--- bf-program : (bf-op | bf-loop)*
--- bf-op : ">" | "<" | "+" | "-" | "." | ","
--- bf-loop : "[" (bf-op | bf-loop)* "]"
+{-
+parseBF :: String -> Either
+parseBF str =
+  case parse bfProgram "" str of
+    (Left err) -> pPrint err
+    (Right res) -> pPrint res
+-}
+parseBF :: String -> Either ParseError BFProgram
+parseBF = parse bfProgram ""
 
-data Program = Program [Op] deriving Show
+bfProgram :: Parser BFProgram
+bfProgram = do
+  ops <- many bfOp
+  return $ BFProgram ops
 
-data Op = MoveRight | MoveLeft | Inc | Dec | ReadStdIn | WriteStdOut | Loop [Op] deriving Show
+bfOp :: Parser BFOp
+bfOp =
+  moveLeft <|> moveRight <|> inc <|> dec <|> readStdIn <|> writeStdOut <|> loop
 
-program :: Parser Program
-program = do
-       ops <- many op
-       return $ Program ops
-
-op :: Parser Op
-op = moveLeft <|> moveRight <|> inc <|> dec <|> readStdIn <|> writeStdOut <|> loop
-
-moveLeft :: Parser Op
+moveLeft :: Parser BFOp
 moveLeft = MoveLeft <$ satisfy (== '<')
 
-moveRight :: Parser Op
+moveRight :: Parser BFOp
 moveRight = MoveRight <$ satisfy (== '>')
 
-inc :: Parser Op
+inc :: Parser BFOp
 inc = Inc <$ satisfy (== '+')
 
-dec :: Parser Op
+dec :: Parser BFOp
 dec = Dec <$ satisfy (== '-')
 
-readStdIn :: Parser Op
+readStdIn :: Parser BFOp
 readStdIn = ReadStdIn <$ satisfy (== ',')
 
-writeStdOut :: Parser Op
+writeStdOut :: Parser BFOp
 writeStdOut = WriteStdOut <$ satisfy (== '.')
 
-loop :: Parser Op
-loop = do 
-    char '['
-    ops <- many op
-    char ']'
-    return $ Loop ops
-
-parseBf :: String -> IO ()
-parseBf str = 
- case (parse program "" str) of
-    (Left err) -> print err
-    (Right res) -> print res
+loop :: Parser BFOp
+loop = do
+  char '['
+  ops <- many bfOp
+  char ']'
+  return $ Loop ops
