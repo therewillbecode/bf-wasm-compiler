@@ -32,11 +32,9 @@ data BFOp
 {---- Webassembly ----}
 newtype WasmProgram =
   WasmProgram [WasmOp]
-  deriving (Show)
 
 newtype VariableName =
   VariableName String
-  deriving (Show)
 
 data WasmOp
   -- Control Instructions
@@ -50,19 +48,33 @@ data WasmOp
   | AddI32
   | SubI32
   | ConstI32 Int
-  deriving (Show)
- -- show _ = ""
 
---instance Show WasmOp where
--- Global variable which holds the element in memory we are pointing to
+instance Show WasmProgram where
+  show (WasmProgram wasmOps) = unlines $ show <$> wasmOps
+
+instance Show VariableName where
+  show (VariableName var) = '$' : var
+
+instance Show WasmOp where
+  show (ConstI32 val) = "i32.const " ++ show val
+  show (GetGlobal var) = "get_global " ++ show var
+  show (SetGlobal var) = "set_global " ++ show var
+  show AddI32 = "i32.add"
+  show SubI32 = "i32.sub"
+
 ptrVariable :: VariableName
 ptrVariable = VariableName "ptr"
 
-incPtr :: [WasmOp]
-incPtr = [GetGlobal ptrVariable, ConstI32 1, AddI32, SetGlobal ptrVariable]
+movePtrRight :: [WasmOp]
+movePtrRight =
+  [GetGlobal ptrVariable, ConstI32 1, AddI32, SetGlobal ptrVariable]
+
+movePtrLeft :: [WasmOp]
+movePtrLeft = [GetGlobal ptrVariable, ConstI32 1, SubI32, SetGlobal ptrVariable]
 
 transformAST :: BFProgram -> WasmProgram
-transformAST (BFProgram bfOps) = WasmProgram $ toWasmOps <$> bfOps
+transformAST (BFProgram bfOps) = WasmProgram $ concatMap toWasmOps bfOps
 
-toWasmOps :: BFOp -> [[WasmOp]]
-toWasmOps Inc = [incPtr]
+toWasmOps :: BFOp -> [WasmOp]
+toWasmOps MoveLeft = movePtrLeft
+toWasmOps MoveRight = movePtrRight

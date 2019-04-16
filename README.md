@@ -1,3 +1,3 @@
 # bf-wasm-compiler
 
-A Brainf*ck to Web Assembly compiler implemented in haskell.
+A Brainfck to Web Assembly compiler implemented in haskell.

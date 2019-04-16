@@ -1,7 +1,15 @@
 module Main where
 
-import Parser
+import Parser (parseBF)
+
+import Transformer
+
+import Types
 
 main :: IO ()
-main = parseBf str
-  where str = "<><[+[-]]<+-" 
+main =
+  case parseBF str of
+    (Left err) -> print err
+    (Right brainfckAST) -> print $ transformAST brainfckAST
+  where
+    str = "<>"
