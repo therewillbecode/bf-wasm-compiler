@@ -30,8 +30,8 @@ data BFOp
   deriving (Show)
 
 {---- Webassembly ----}
-newtype WASMProgram =
-  WASMProgram [WasmOp]
+newtype WasmProgram =
+  WasmProgram [WasmOp]
   deriving (Show)
 
 newtype VariableName =
@@ -51,10 +51,18 @@ data WasmOp
   | SubI32
   | ConstI32 Int
   deriving (Show)
+ -- show _ = ""
 
+--instance Show WasmOp where
 -- Global variable which holds the element in memory we are pointing to
 ptrVariable :: VariableName
 ptrVariable = VariableName "ptr"
 
 incPtr :: [WasmOp]
 incPtr = [GetGlobal ptrVariable, ConstI32 1, AddI32, SetGlobal ptrVariable]
+
+transformAST :: BFProgram -> WasmProgram
+transformAST (BFProgram bfOps) = WasmProgram $ toWasmOps <$> bfOps
+
+toWasmOps :: BFOp -> [[WasmOp]]
+toWasmOps Inc = [incPtr]
