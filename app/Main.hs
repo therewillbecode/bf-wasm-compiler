@@ -12,4 +12,4 @@ main =
     (Left err) -> print err
     (Right brainfckAST) -> print $ transformAST brainfckAST
   where
-    str = "<>"
+    str = "><"
