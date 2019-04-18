@@ -41,7 +41,8 @@ bfProgram = do
 
 bfOp :: Parser BFOp
 bfOp =
-  moveLeft <|> moveRight <|> inc <|> dec <|> readStdIn <|> writeStdOut <|> loop
+  moveLeft <|> moveRight <|> inc <|> dec <|> readStdIn <|> writeStdOut <|>
+  bfLoop
 
 moveLeft :: Parser BFOp
 moveLeft = MoveLeft <$ satisfy (== '<')
@@ -61,9 +62,9 @@ readStdIn = ReadStdIn <$ satisfy (== ',')
 writeStdOut :: Parser BFOp
 writeStdOut = WriteStdOut <$ satisfy (== '.')
 
-loop :: Parser BFOp
-loop = do
+bfLoop :: Parser BFOp
+bfLoop = do
   char '['
   ops <- many bfOp
   char ']'
-  return $ Loop ops
+  return $ BFLoop ops

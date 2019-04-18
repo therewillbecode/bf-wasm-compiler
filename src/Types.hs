@@ -26,7 +26,7 @@ data BFOp
   | Dec
   | ReadStdIn
   | WriteStdOut
-  | Loop [BFOp]
+  | BFLoop [BFOp]
   deriving (Show)
 
 {---- Webassembly ----}
@@ -38,8 +38,15 @@ newtype VariableName =
 
 data WasmOp
   -- Control Instructions
+  = Br Int
+  | BrIf Int
+  | Block VariableName
+          [WasmOp]
+  | Call VariableName
+  | WasmLoop VariableName
+             [WasmOp]
   -- Memory Instructions
-  = LoadI32
+  | LoadI32
   | StoreI32
   -- Variable instructions
   | GetGlobal VariableName
@@ -48,7 +55,10 @@ data WasmOp
   | AddI32
   | SubI32
   | MulI32
+  | EqzI32
   | ConstI32 Int
+  -- Bitwise instructions
+  | AndI32
 
 instance Show WasmProgram where
   show (WasmProgram wasmOps) =
@@ -72,16 +82,38 @@ instance Show WasmOp where
   show MulI32 = "  i32.mul"
   show LoadI32 = "  i32.load"
   show StoreI32 = "  i32.store"
+  show EqzI32 = "  i32.eqz"
+  show AndI32 = "  i32.and"
+  show (Call var) = "  call " ++ show var
+  show (Br stackDepth) = "  br " ++ show stackDepth
+  show (BrIf cond) = "  br_if " ++ show cond
+  show (Block var ops) = "    (block  " ++ show var ++ blockOps ++ "    )"
+    where
+      blockOps = unlines $ show <$> ops
+  show (WasmLoop var ops) =
+    "\n      (loop " ++ show var ++ "\n  " ++ loopOps ++ "\n     br  0" ++ ")"
+    where
+      loopOps = unlines $ (++) "        " . show <$> ops
 
-wasmGlobal name = "(global $" ++ name ++ " (mut i32) (i32.const 0))\n"
+wasmGlobal name = "  (global $" ++ name ++ " (mut i32) (i32.const 0))\n"
 
-wasmImport = "(import \"js\" \"print\" (func $print))"
+wasmImport = "  (import \"js\" \"print\" (func $print))"
 
 -- function that is exported so that JS can inspect ptr value
-wasmGetPtrFunc = "(func $get_ptr (result i32) \n get_global $ptr \n )\n\n"
+wasmGetPtrFunc = "  (func $get_ptr (result i32) \n    get_global $ptr \n  )\n\n"
 
 wasmMainFunc body =
-  "(export \"main\" (func $main)) \n (func $main\n" ++ body ++ ")"
+  "  (export \"main\" (func $main)) \n  (func $main\n" ++ body ++ " )"
+
+loopWhileCellZero :: [WasmOp] -> WasmOp
+loopWhileCellZero ops = Block varName [blockOps]
+  where
+    varName = VariableName "loop_break"
+    breakIfCellZero = currCellEqZero ++ [BrIf 1]
+    blockOps = WasmLoop (VariableName "loop") (ops ++ breakIfCellZero)
+
+currCellEqZero :: [WasmOp]
+currCellEqZero = getCurrCellVal ++ [EqzI32]
 
 ptrVariable :: VariableName
 ptrVariable = VariableName "ptr"
@@ -102,12 +134,12 @@ incCurrCellVal = modifyCurrCellVal [ConstI32 1, AddI32]
 decCurrCellVal :: [WasmOp]
 decCurrCellVal = modifyCurrCellVal [ConstI32 1, SubI32]
 
--- Updates the currCellVal global variable with the current cell val of the pointed at cell 
+-- Updates the curr Cell Val with the current cell val of the pointed at cell 
 modifyCurrCellVal :: [WasmOp] -> [WasmOp]
 modifyCurrCellVal ops =
-  [GetGlobal ptrVariable] ++ getCurrCellVal ++ ops ++ [StoreI32]
+  getCellByteOffset ++ getCurrCellVal ++ ops ++ toUnsigned8Bit ++ [StoreI32]
 
--- calculate the address offset so we can get the pointed at value (32 bit int is 4 bytes wide)
+-- calculate the byte offset where a cell lives in memory (32 bit int is 4 bytes wide)
 getCellByteOffset :: [WasmOp]
 getCellByteOffset = [GetGlobal ptrVariable, ConstI32 elementBytesWidth, MulI32]
   where
@@ -115,11 +147,16 @@ getCellByteOffset = [GetGlobal ptrVariable, ConstI32 elementBytesWidth, MulI32]
 
 -- push the value at current pointed to cell to stack
 getCurrCellVal :: [WasmOp]
-getCurrCellVal =
-  getCellByteOffset ++
-  [ LoadI32
-  --, SetGlobal currCellValue -- store pointed at value in global variable
-  ]
+getCurrCellVal = getCellByteOffset ++ [LoadI32]
+
+-- prints cell integer as an ASCII encoded value
+printCurrCellVal :: [WasmOp]
+printCurrCellVal = [GetGlobal ptrVariable, Call $ VariableName "print"]
+
+-- Truncate o 8 bit when > 255
+-- Used before a number is written to memory to preserve unsigned 8 bit properties
+toUnsigned8Bit :: [WasmOp]
+toUnsigned8Bit = [ConstI32 255, AndI32]
 
 transformAST :: BFProgram -> WasmProgram
 transformAST (BFProgram bfOps) = WasmProgram $ concatMap toWasmOps bfOps
@@ -129,3 +166,5 @@ toWasmOps MoveLeft = movePtrLeft
 toWasmOps MoveRight = movePtrRight
 toWasmOps Inc = incCurrCellVal
 toWasmOps Dec = decCurrCellVal
+toWasmOps WriteStdOut = printCurrCellVal
+toWasmOps (BFLoop bfOps) = [loopWhileCellZero $ concatMap toWasmOps bfOps]
