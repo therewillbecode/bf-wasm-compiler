@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 26025b7f0d03db72728261f9599acf9979c673f31f3b2d1a44c343bb34484b7f
+-- hash: e6db431d3fa04276d4e4e2986d9f6bbd44a9ec59574f4446580544d110163447
 
 name:           bf-wasm-compiler
 version:        0.1.0.0
@@ -26,9 +26,11 @@ source-repository head
 
 library
   exposed-modules:
+      CodeGenerator
       Parser
       Transformer
       Types
+      Wasm
   other-modules:
       Paths_bf_wasm_compiler
   hs-source-dirs:
